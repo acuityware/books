@@ -8,29 +8,24 @@
         selectHighlightedItem,
       }"
     >
-      <div class="text-gray-600 text-sm mb-1" v-if="showLabel">
+      <div :class="labelClasses" v-if="showLabel">
         {{ df.label }}
       </div>
       <div
-        class="
-          flex
-          items-center
-          justify-between
-          focus-within:bg-gray-200
-          pr-2
-          rounded
-        "
+        class="flex items-center justify-between pr-2 rounded"
+        :class="containerClasses"
       >
         <input
           ref="input"
           spellcheck="false"
           :class="inputClasses"
+          class="bg-transparent"
           type="text"
           :value="linkValue"
           :placeholder="inputPlaceholder"
           :readonly="isReadOnly"
-          @focus="(e) => onFocus(e, toggleDropdown)"
-          @blur="(e) => onBlur(e.target.value)"
+          @focus="(e) => !isReadOnly && onFocus(e, toggleDropdown)"
+          @blur="(e) => !isReadOnly && onBlur(e.target.value)"
           @input="onInput"
           @keydown.up="highlightItemUp"
           @keydown.down="highlightItemDown"
@@ -44,10 +39,12 @@
           style="background: inherit; margin-right: -3px"
           viewBox="0 0 5 10"
           xmlns="http://www.w3.org/2000/svg"
+          @click="(e) => !isReadOnly && onFocus(e, toggleDropdown)"
         >
           <path
             d="M1 2.636L2.636 1l1.637 1.636M1 7.364L2.636 9l1.637-1.636"
-            stroke="#404040"
+            class="stroke-current"
+            :class="showMandatory ? 'text-red-500' : 'text-gray-500'"
             fill="none"
             fill-rule="evenodd"
             stroke-linecap="round"
@@ -159,8 +156,11 @@ export default {
         .map(({ item }) => item);
     },
     setSuggestion(suggestion) {
-      this.linkValue = suggestion.label;
-      this.triggerChange(suggestion.value);
+      if (suggestion) {
+        this.linkValue = suggestion.label;
+        this.triggerChange(suggestion.value);
+      }
+
       this.toggleDropdown(false);
     },
     onFocus(e, toggleDropdown) {
@@ -189,6 +189,10 @@ export default {
       }
     },
     onInput(e) {
+      if (this.isReadOnly) {
+        return;
+      }
+
       this.toggleDropdown(true);
       this.updateSuggestions(e.target.value);
     },

@@ -1,17 +1,19 @@
 import { Fyo } from 'fyo';
-import { ConfigFile, DocValueMap } from 'fyo/core/types';
+import { DocValueMap } from 'fyo/core/types';
 import { Doc } from 'fyo/model/doc';
 import { createNumberSeries } from 'fyo/model/naming';
 import {
   DEFAULT_CURRENCY,
   DEFAULT_LOCALE,
-  DEFAULT_SERIES_START,
+  DEFAULT_SERIES_START
 } from 'fyo/utils/consts';
+import { AccountRootTypeEnum } from 'models/baseModels/Account/types';
 import { AccountingSettings } from 'models/baseModels/AccountingSettings/AccountingSettings';
 import { ModelNameEnum } from 'models/types';
-import { initializeInstance } from 'src/initFyo';
+import { initializeInstance, setCurrencySymbols } from 'src/initFyo';
 import { createRegionalRecords } from 'src/regional';
 import { getRandomString } from 'utils';
+import { defaultUOMs } from 'utils/defaults';
 import { getCountryCodeFromCountry, getCountryInfo } from 'utils/misc';
 import { CountryInfo } from 'utils/types';
 import { CreateCOA } from './createCOA';
@@ -25,6 +27,7 @@ export default async function setupInstance(
   const { companyName, country, bankName, chartOfAccounts } =
     setupWizardOptions;
 
+  fyo.store.skipTelemetryLogging = true;
   await initializeDatabase(dbPath, country, fyo);
   await updateSystemSettings(setupWizardOptions, fyo);
   await updateAccountingSettings(setupWizardOptions, fyo);
@@ -33,9 +36,24 @@ export default async function setupInstance(
   await createCurrencyRecords(fyo);
   await createAccountRecords(bankName, country, chartOfAccounts, fyo);
   await createRegionalRecords(country, fyo);
+  await createDefaultEntries(fyo);
   await createDefaultNumberSeries(fyo);
 
   await completeSetup(companyName, fyo);
+  if (!Object.keys(fyo.currencySymbols).length) {
+    await setCurrencySymbols(fyo);
+  }
+
+  fyo.store.skipTelemetryLogging = false;
+}
+
+async function createDefaultEntries(fyo: Fyo) {
+  /**
+   * Create default UOM entries
+   */
+  for (const uom of defaultUOMs) {
+    await checkAndCreateDoc(ModelNameEnum.UOM, uom, fyo);
+  }
 }
 
 async function initializeDatabase(dbPath: string, country: string, fyo: Fyo) {
@@ -148,37 +166,71 @@ async function createAccountRecords(
   const createCOA = new CreateCOA(chartOfAccounts, fyo);
   await createCOA.run();
   const parentAccount = await getBankAccountParentName(country, fyo);
-  const docObject = {
+  const bankAccountDoc = {
     name: bankName,
-    rootType: 'Asset',
+    rootType: AccountRootTypeEnum.Asset,
     parentAccount,
     accountType: 'Bank',
     isGroup: false,
   };
-  await checkAndCreateDoc('Account', docObject, fyo);
+
+  await checkAndCreateDoc('Account', bankAccountDoc, fyo);
+  await createDiscountAccount(fyo);
+  await setDefaultAccounts(fyo);
+}
+
+export async function createDiscountAccount(fyo: Fyo) {
+  const incomeAccountName = fyo.t`Indirect Income`;
+  const accountExists = await fyo.db.exists(
+    ModelNameEnum.Account,
+    incomeAccountName
+  );
+
+  if (!accountExists) {
+    return;
+  }
+
+  const discountAccountName = fyo.t`Discounts`;
+  const discountAccountDoc = {
+    name: discountAccountName,
+    rootType: AccountRootTypeEnum.Income,
+    parentAccount: incomeAccountName,
+    accountType: 'Income Account',
+    isGroup: false,
+  };
+
+  await checkAndCreateDoc(ModelNameEnum.Account, discountAccountDoc, fyo);
+  await fyo.singles.AccountingSettings!.setAndSync(
+    'discountAccount',
+    discountAccountName
+  );
+}
+
+async function setDefaultAccounts(fyo: Fyo) {
+  await setDefaultAccount('writeOffAccount', fyo.t`Write Off`, fyo);
+  const isSet = await setDefaultAccount(
+    'roundOffAccount',
+    fyo.t`Rounded Off`,
+    fyo
+  );
+
+  if (!isSet) {
+    await setDefaultAccount('roundOffAccount', fyo.t`Round Off`, fyo);
+  }
+}
+
+async function setDefaultAccount(key: string, accountName: string, fyo: Fyo) {
+  const accountExists = await fyo.db.exists(ModelNameEnum.Account, accountName);
+  if (!accountExists) {
+    return false;
+  }
+
+  await fyo.singles.AccountingSettings!.setAndSync(key, accountName);
+  return true;
 }
 
 async function completeSetup(companyName: string, fyo: Fyo) {
-  await updateInitializationConfig(companyName, fyo);
   await fyo.singles.AccountingSettings!.setAndSync('setupComplete', true);
-}
-
-async function updateInitializationConfig(companyName: string, fyo: Fyo) {
-  const instanceId = (await fyo.getValue(
-    ModelNameEnum.SystemSettings,
-    'instanceId'
-  )) as string;
-  const dbPath = fyo.db.dbPath;
-  const files = fyo.config.get('files', []) as ConfigFile[];
-
-  files.forEach((file) => {
-    if (file.dbPath === dbPath) {
-      file.companyName = companyName;
-      file.id = instanceId;
-    }
-  });
-
-  fyo.config.set('files', files);
 }
 
 async function checkAndCreateDoc(
@@ -250,12 +302,7 @@ async function getBankAccountParentName(country: string, fyo: Fyo) {
 
 async function createDefaultNumberSeries(fyo: Fyo) {
   await createNumberSeries('SINV-', 'SalesInvoice', DEFAULT_SERIES_START, fyo);
-  await createNumberSeries(
-    'PINV-',
-    'PurchaseInvoice',
-    DEFAULT_SERIES_START,
-    fyo
-  );
+  await createNumberSeries('PINV-', 'PurchaseInvoice', DEFAULT_SERIES_START, fyo);
   await createNumberSeries('PAY-', 'Payment', DEFAULT_SERIES_START, fyo);
   await createNumberSeries('JV-', 'JournalEntry', DEFAULT_SERIES_START, fyo);
 }

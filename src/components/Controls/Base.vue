@@ -1,27 +1,32 @@
 <template>
   <div>
-    <div class="text-gray-600 text-sm mb-1" v-if="showLabel">
+    <div :class="labelClasses" v-if="showLabel">
       {{ df.label }}
     </div>
-    <input
-      spellcheck="false"
-      ref="input"
-      :class="inputClasses"
-      :type="inputType"
-      :value="value"
-      :placeholder="inputPlaceholder"
-      :readonly="isReadOnly"
-      :max="df.maxvalue"
-      :min="df.minvalue"
-      @blur="(e) => triggerChange(e.target.value)"
-      @focus="(e) => $emit('focus', e)"
-      @input="(e) => $emit('input', e)"
-    />
+    <div :class="showMandatory ? 'show-mandatory' : ''">
+      <input
+        spellcheck="false"
+        ref="input"
+        class="bg-transparent"
+        :class="[inputClasses, containerClasses]"
+        :type="inputType"
+        :value="value"
+        :placeholder="inputPlaceholder"
+        :readonly="isReadOnly"
+        :max="df.maxvalue"
+        :min="df.minvalue"
+        @blur="(e) => !isReadOnly && triggerChange(e.target.value)"
+        @focus="(e) => !isReadOnly && $emit('focus', e)"
+        @input="(e) => !isReadOnly && $emit('input', e)"
+      />
+    </div>
   </div>
 </template>
 
 <script>
 import { isNumeric } from 'src/utils';
+import { evaluateReadOnly, evaluateRequired } from 'src/utils/doc';
+import { getIsNullOrUndef } from 'utils/index';
 
 export default {
   name: 'Base',
@@ -29,11 +34,14 @@ export default {
     df: Object,
     value: [String, Number, Boolean, Object],
     inputClass: [Function, String, Object],
+    border: { type: Boolean, default: false },
     placeholder: String,
     size: String,
     showLabel: Boolean,
-    readOnly: Boolean,
     autofocus: Boolean,
+    textRight: { type: [null, Boolean], default: null },
+    readOnly: { type: [null, Boolean], default: null },
+    required: { type: [null, Boolean], default: null },
   },
   emits: ['focus', 'input', 'change'],
   inject: {
@@ -56,38 +64,103 @@ export default {
     inputType() {
       return 'text';
     },
+    labelClasses() {
+      return 'text-gray-600 text-sm mb-1';
+    },
     inputClasses() {
-      let classes = [
-        {
-          'px-3 py-2': this.size !== 'small',
-          'px-2 py-1': this.size === 'small',
-          'pointer-events-none': this.isReadOnly,
-        },
-        'focus:outline-none focus:bg-gray-200 rounded w-full placeholder-gray-400',
-        this.isReadOnly ? 'text-gray-800' : 'text-gray-900',
+      /**
+       * These classes will be used by components that extend Base
+       */
+
+      const classes = [
+        'text-base',
+        'focus:outline-none',
+        'w-full',
+        'placeholder-gray-500',
       ];
 
+      if (this.textRight ?? isNumeric(this.df)) {
+        classes.push('text-right');
+      }
+
+      if (this.size === 'small') {
+        classes.push('px-2 py-1');
+      } else {
+        classes.push('px-3 py-2');
+      }
+
+      if (this.isReadOnly) {
+        classes.push('text-gray-800 cursor-default');
+      } else {
+        classes.push('text-gray-900');
+      }
+
       return this.getInputClassesFromProp(classes);
+    },
+    containerClasses() {
+      /**
+       * Used to accomodate extending compoents where the input is contained in
+       * a div eg AutoComplete
+       */
+      const classes = ['rounded'];
+      if (!this.isReadOnly) {
+        classes.push('focus-within:bg-gray-100');
+      }
+
+      if (this.border) {
+        classes.push('bg-gray-50 border border-gray-200');
+      }
+
+      return classes;
     },
     inputPlaceholder() {
       return this.placeholder || this.df.placeholder || this.df.label;
     },
+    showMandatory() {
+      return this.isEmpty && this.isRequired;
+    },
+    isEmpty() {
+      if (Array.isArray(this.value) && !this.value.length) {
+        return true;
+      }
+
+      if (typeof this.value === 'string' && !this.value) {
+        return true;
+      }
+
+      if (getIsNullOrUndef(this.value)) {
+        return true;
+      }
+
+      return false;
+    },
     isReadOnly() {
-      if (this.readOnly != null) {
+      if (typeof this.readOnly === 'boolean') {
         return this.readOnly;
       }
-      return this.df.readOnly;
+
+      return evaluateReadOnly(this.df, this.doc);
+    },
+    isRequired() {
+      if (typeof this.required === 'boolean') {
+        return this.required;
+      }
+
+      return evaluateRequired(this.df, this.doc);
     },
   },
   methods: {
     getInputClassesFromProp(classes) {
-      if (this.inputClass) {
-        if (typeof this.inputClass === 'function') {
-          classes = this.inputClass(classes);
-        } else {
-          classes.push(this.inputClass);
-        }
+      if (!this.inputClass) {
+        return classes;
       }
+
+      if (typeof this.inputClass === 'function') {
+        classes = this.inputClass(classes);
+      } else {
+        classes.push(this.inputClass);
+      }
+
       return classes;
     },
     focus() {
@@ -111,9 +184,3 @@ export default {
   },
 };
 </script>
-
-<style>
-input[type='number']::-webkit-inner-spin-button {
-  appearance: none;
-}
-</style>

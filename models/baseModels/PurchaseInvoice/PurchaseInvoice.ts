@@ -10,18 +10,25 @@ export class PurchaseInvoice extends Invoice {
   items?: PurchaseInvoiceItem[];
 
   async getPosting() {
+    const exchangeRate = this.exchangeRate ?? 1;
     const posting: LedgerPosting = new LedgerPosting(this, this.fyo);
-
     await posting.credit(this.account!, this.baseGrandTotal!);
 
     for (const item of this.items!) {
-      await posting.debit(item.account!, item.baseAmount!);
+      await posting.debit(item.account!, item.amount!.mul(exchangeRate));
     }
 
     if (this.taxes) {
       for (const tax of this.taxes) {
-        await posting.debit(tax.account!, tax.baseAmount!);
+        await posting.debit(tax.account!, tax.amount!.mul(exchangeRate));
       }
+    }
+
+    const discountAmount = await this.getTotalDiscount();
+    const discountAccount = this.fyo.singles.AccountingSettings
+      ?.discountAccount as string | undefined;
+    if (discountAccount && discountAmount.isPositive()) {
+      await posting.credit(discountAccount, discountAmount.mul(exchangeRate));
     }
 
     await posting.makeRoundOffEntry();
@@ -40,7 +47,7 @@ export class PurchaseInvoice extends Invoice {
         getTransactionStatusColumn(),
         'party',
         'date',
-        'grandTotal',
+        'baseGrandTotal',
         'outstandingAmount',
       ],
     };

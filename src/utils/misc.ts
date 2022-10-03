@@ -1,3 +1,4 @@
+import { Fyo } from 'fyo';
 import { ConfigFile, ConfigKeys } from 'fyo/core/types';
 import { DateTime } from 'luxon';
 import { SetupWizard } from 'models/baseModels/SetupWizard/SetupWizard';
@@ -57,25 +58,55 @@ export async function getSetupWizardDoc() {
   );
 }
 
-export async function incrementOpenCount(dbPath: string) {
-  const companyName = (await fyo.getValue(
-    ModelNameEnum.AccountingSettings,
-    'companyName'
-  )) as string;
+export function updateConfigFiles(fyo: Fyo): ConfigFile {
+  const configFiles = fyo.config.get(ConfigKeys.Files, []) as ConfigFile[];
 
-  let openCount = 0;
-  const files = fyo.config.get(ConfigKeys.Files) as ConfigFile[];
-  for (const file of files) {
-    if (file.companyName !== companyName || file.dbPath !== dbPath) {
-      continue;
-    }
+  const companyName = fyo.singles.AccountingSettings!.companyName as string;
+  const id = fyo.singles.SystemSettings!.instanceId as string;
+  const dbPath = fyo.db.dbPath!;
+  const openCount = fyo.singles.Misc!.openCount as number;
 
-    file.openCount ??= 0;
-    file.openCount += 1;
-    openCount = file.openCount;
-    break;
+  const fileIndex = configFiles.findIndex((f) => f.id === id);
+  let newFile = { id, companyName, dbPath, openCount } as ConfigFile;
+
+  if (fileIndex === -1) {
+    configFiles.push(newFile);
+  } else {
+    configFiles[fileIndex].companyName = companyName;
+    configFiles[fileIndex].dbPath = dbPath;
+    configFiles[fileIndex].openCount = openCount;
+    newFile = configFiles[fileIndex];
   }
 
-  fyo.config.set(ConfigKeys.Files, files);
-  return openCount;
+  fyo.config.set(ConfigKeys.Files, configFiles);
+  return newFile;
 }
+
+export const docsPathMap: Record<string, string | undefined> = {
+  // Analytics
+  Dashboard: 'analytics/dashboard',
+  Reports: 'analytics/reports',
+  GeneralLedger: 'analytics/general-ledger',
+  ProfitAndLoss: 'analytics/profit-and-loss',
+  BalanceSheet: 'analytics/balance-sheet',
+  TrialBalance: 'analytics/trial-balance',
+
+  // Transactions
+  [ModelNameEnum.SalesInvoice]: 'transactions/sales-invoices',
+  [ModelNameEnum.PurchaseInvoice]: 'transactions/purchase-invoices',
+  [ModelNameEnum.Payment]: 'transactions/payments',
+  [ModelNameEnum.JournalEntry]: 'transactions/journal-entries',
+
+  // Entries
+  Entries: 'entries/entries',
+  [ModelNameEnum.Party]: 'entries/party',
+  [ModelNameEnum.Item]: 'entries/items',
+  [ModelNameEnum.Tax]: 'entries/taxes',
+
+  // Miscellaneous
+  Search: 'miscellaneous/search',
+  NumberSeries: 'miscellaneous/number-series',
+  DataImport: 'miscellaneous/data-import',
+  Settings: 'miscellaneous/settings',
+  ChartOfAccounts: 'miscellaneous/chart-of-accounts',
+};

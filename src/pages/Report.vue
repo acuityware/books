@@ -3,6 +3,7 @@
     <PageHeader :title="title">
       <DropdownWithActions
         v-for="group of groupedActions"
+        :icon="false"
         :key="group.label"
         :type="group.type"
         :actions="group.actions"
@@ -13,15 +14,13 @@
     </PageHeader>
 
     <!-- Filters -->
-    <div v-if="report" class="mx-4 grid grid-cols-5 gap-2">
+    <div v-if="report" class="grid grid-cols-5 gap-4 p-4 border-b">
       <FormControl
         v-for="field in report.filters"
+        :border="true"
         size="small"
         :show-label="field.fieldtype === 'Check'"
         :key="field.fieldname + '-filter'"
-        class="bg-gray-100 rounded"
-        :class="field.fieldtype === 'Check' ? 'flex pl-2 py-1' : ''"
-        input-class="bg-transparent text-sm"
         :df="field"
         :value="report.get(field.fieldname)"
         :read-only="loading"
@@ -30,7 +29,7 @@
     </div>
 
     <!-- Report Body -->
-    <ListReport v-if="report" :report="report" class="mx-4 mt-4" />
+    <ListReport v-if="report" :report="report" class="" />
   </div>
 </template>
 <script>
@@ -42,6 +41,8 @@ import DropdownWithActions from 'src/components/DropdownWithActions.vue';
 import PageHeader from 'src/components/PageHeader.vue';
 import ListReport from 'src/components/Report/ListReport.vue';
 import { fyo } from 'src/initFyo';
+import { docsPathMap } from 'src/utils/misc';
+import { docsPath } from 'src/utils/ui';
 import { defineComponent } from 'vue';
 
 export default defineComponent({
@@ -65,6 +66,7 @@ export default defineComponent({
   },
   components: { PageHeader, FormControl, ListReport, DropdownWithActions },
   async activated() {
+    docsPath.value = docsPathMap[this.reportClassName] ?? docsPathMap.Reports;
     await this.setReportData();
 
     const filters = JSON.parse(this.defaultFilters);
@@ -74,12 +76,15 @@ export default defineComponent({
     }
 
     if (filterKeys.length) {
-      await this.report.postSet();
+      await this.report.updateData();
     }
 
     if (fyo.store.isDevelopment) {
       window.rep = this;
     }
+  },
+  deactivated() {
+    docsPath.value = '';
   },
   computed: {
     title() {

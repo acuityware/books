@@ -1,44 +1,40 @@
 <template>
-  <div class="flex flex-col">
+  <FormContainer>
     <!-- Page Header (Title, Buttons, etc) -->
-    <PageHeader :backLink="true">
-      <template v-if="doc">
-        <StatusBadge :status="status" />
-        <DropdownWithActions :actions="actions" />
-        <Button
-          v-if="doc?.notInserted || doc?.dirty"
-          type="primary"
-          class="text-white text-xs"
-          @click="sync"
-        >
-          {{ t`Save` }}
-        </Button>
-        <Button
-          v-else-if="!doc.dirty && !doc.notInserted && !doc.submitted"
-          type="primary"
-          class="text-white text-xs"
-          @click="submit"
-        >
-          {{ t`Submit` }}
-        </Button>
-      </template>
-    </PageHeader>
+    <template #header v-if="doc">
+      <StatusBadge :status="status" />
+      <DropdownWithActions :actions="actions" />
+      <Button
+        v-if="doc?.notInserted || doc?.dirty"
+        type="primary"
+        class="text-white text-xs"
+        @click="sync"
+      >
+        {{ t`Save` }}
+      </Button>
+      <Button
+        v-else-if="!doc.dirty && !doc.notInserted && !doc.submitted"
+        type="primary"
+        class="text-white text-xs"
+        @click="submit"
+      >
+        {{ t`Submit` }}
+      </Button>
+    </template>
 
     <!-- Journal Entry Form -->
-    <div
-      class="
-        self-center
-        border
-        rounded-lg
-        shadow
-        flex flex-col
-        mt-2
-        w-form
-        h-form
-      "
-      v-if="doc"
-    >
-      <div class="p-4 text-2xl font-semibold flex justify-between">
+    <template #body v-if="doc">
+      <div
+        class="
+          px-4
+          text-xl
+          font-semibold
+          flex
+          justify-between
+          h-row-large
+          items-center
+        "
+      >
         <h1>
           {{ doc.notInserted ? t`New Entry` : doc.name }}
         </h1>
@@ -51,49 +47,43 @@
         <div class="m-4 grid grid-cols-3 gap-y-4 gap-x-4">
           <!-- First Column of Fields -->
           <FormControl
+            :border="true"
             :df="getField('numberSeries')"
             :value="doc.numberSeries"
             @change="(value) => doc.set('numberSeries', value)"
-            class="bg-gray-100 rounded"
-            input-class="p-2 text-base bg-transparent"
             :read-only="!doc.notInserted || doc.submitted"
-            :class="doc.submitted && 'pointer-events-none'"
           />
           <FormControl
+            :border="true"
             :df="getField('date')"
             :value="doc.date"
             :placeholder="'Date'"
             @change="(value) => doc.set('date', value)"
-            input-class="bg-gray-100 px-3 py-2 text-base"
             :read-only="doc.submitted"
-            :class="doc.submitted && 'pointer-events-none'"
           />
           <FormControl
+            :border="true"
             :df="getField('entryType')"
             :value="doc.entryType"
             placeholder="Entry Type"
             @change="(value) => doc.set('entryType', value)"
-            input-class="bg-gray-100 px-3 py-2 text-base"
             :read-only="doc.submitted"
-            :class="doc.submitted && 'pointer-events-none'"
           />
           <FormControl
+            :border="true"
             :df="getField('referenceNumber')"
             :value="doc.referenceNumber"
             :placeholder="'Reference Number'"
             @change="(value) => doc.set('referenceNumber', value)"
-            input-class="bg-gray-100 p-2 text-base"
             :read-only="doc.submitted"
-            :class="doc.submitted && 'pointer-events-none'"
           />
           <FormControl
+            :border="true"
             :df="getField('referenceDate')"
             :value="doc.referenceDate"
             :placeholder="'Reference Date'"
             @change="(value) => doc.set('referenceDate', value)"
-            input-class="bg-gray-100 px-3 py-2 text-base"
             :read-only="doc.submitted"
-            :class="doc.submitted && 'pointer-events-none'"
           />
         </div>
         <hr />
@@ -112,16 +102,15 @@
       <!-- Footer -->
       <div v-if="doc.accounts?.length ?? 0" class="mt-auto">
         <hr />
-        <div class="flex justify-between text-base m-6 gap-12">
+        <div class="flex justify-between text-base m-4 gap-12">
           <!-- User Remark -->
           <FormControl
+            :border="true"
             v-if="!doc.submitted || doc.userRemark"
             class="w-1/2 self-end"
-            input-class="bg-gray-100"
             :df="getField('userRemark')"
             :value="doc.userRemark"
             @change="(value) => doc.set('userRemark', value)"
-            :class="doc.submitted && 'pointer-events-none'"
             :read-only="doc.submitted"
           />
 
@@ -139,20 +128,23 @@
           </div>
         </div>
       </div>
-    </div>
-  </div>
+    </template>
+  </FormContainer>
 </template>
 <script>
 import { computed } from '@vue/reactivity';
+import { getDocStatus } from 'models/helpers';
 import { ModelNameEnum } from 'models/types';
-import Button from 'src/components/Button';
+import Button from 'src/components/Button.vue';
 import FormControl from 'src/components/Controls/FormControl.vue';
 import Table from 'src/components/Controls/Table.vue';
-import DropdownWithActions from 'src/components/DropdownWithActions';
-import PageHeader from 'src/components/PageHeader';
-import StatusBadge from 'src/components/StatusBadge';
+import DropdownWithActions from 'src/components/DropdownWithActions.vue';
+import FormContainer from 'src/components/FormContainer.vue';
+import StatusBadge from 'src/components/StatusBadge.vue';
 import { fyo } from 'src/initFyo';
+import { docsPathMap } from 'src/utils/misc';
 import {
+docsPath,
 getActionsForDocument,
 routeTo,
 showMessageDialog
@@ -163,12 +155,12 @@ export default {
   name: 'JournalEntryForm',
   props: ['name'],
   components: {
-    PageHeader,
     Button,
     DropdownWithActions,
     StatusBadge,
     FormControl,
     Table,
+    FormContainer,
   },
   provide() {
     return {
@@ -182,6 +174,12 @@ export default {
       schemaName: ModelNameEnum.JournalEntry,
       doc: null,
     };
+  },
+  activated() {
+    docsPath.value = docsPathMap.JournalEntry;
+  },
+  deactivated() {
+    docsPath.value = '';
   },
   async mounted() {
     try {
@@ -201,11 +199,7 @@ export default {
   },
   computed: {
     status() {
-      if (this.doc.notInserted || !this.doc.submitted) {
-        return 'Draft';
-      }
-
-      return '';
+      return getDocStatus(this.doc);
     },
     totalDebit() {
       let value = 0;

@@ -1,6 +1,7 @@
 {
   "name": "Payment",
   "label": "Payment",
+  "naming": "numberSeries",
   "isSingle": false,
   "isChild": false,
   "isSubmittable": true,
@@ -17,6 +18,7 @@
       "label": "Party",
       "fieldtype": "Link",
       "target": "Party",
+      "create": true,
       "required": true
     },
     {
@@ -30,6 +32,7 @@
       "label": "From Account",
       "fieldtype": "Link",
       "target": "Account",
+      "create": true,
       "required": true
     },
     {
@@ -55,6 +58,7 @@
       "placeholder": "To Account",
       "fieldtype": "Link",
       "target": "Account",
+      "create": true,
       "required": true
     },
     {
@@ -62,6 +66,7 @@
       "label": "Number Series",
       "fieldtype": "Link",
       "target": "NumberSeries",
+      "create": true,
       "required": true,
       "default": "PAY-"
     },
@@ -117,6 +122,12 @@
       "fieldtype": "Currency"
     },
     {
+      "fieldname": "amountPaid",
+      "label": "Amount Paid",
+      "fieldtype": "Currency",
+      "computed": true
+    },
+    {
       "fieldname": "for",
       "label": "Payment Reference",
       "fieldtype": "Table",
@@ -137,6 +148,7 @@
     "clearanceDate",
     "amount",
     "writeoff",
+    "amountPaid",
     "for"
   ],
   "keywordFields": ["name", "party", "paymentType"]

@@ -1,6 +1,7 @@
 {
   "label": "Journal Entry",
   "name": "JournalEntry",
+  "naming": "numberSeries",
   "isSubmittable": true,
   "fields": [
     {
@@ -97,6 +98,7 @@
       "label": "Number Series",
       "fieldtype": "Link",
       "target": "NumberSeries",
+      "create": true,
       "required": true,
       "default": "JV-"
     }

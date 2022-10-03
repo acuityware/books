@@ -1,6 +1,7 @@
 {
   "name": "Currency",
   "label": "Currency",
+  "naming": "manual",
   "isSingle": false,
   "fields": [
     {
@@ -30,5 +31,5 @@
       "fieldtype": "Data"
     }
   ],
-  "quickEditFields": ["name", "symbol"]
+  "quickEditFields": ["symbol"]
 }

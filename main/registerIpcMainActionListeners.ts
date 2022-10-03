@@ -3,6 +3,7 @@ import { autoUpdater } from 'electron-updater';
 import fs from 'fs/promises';
 import path from 'path';
 import databaseManager from '../backend/database/manager';
+import { emitMainProcessError } from '../backend/helpers';
 import { Main } from '../main';
 import { DatabaseMethod } from '../utils/db/types';
 import { IPC_ACTIONS } from '../utils/messages';
@@ -11,7 +12,8 @@ import { getLanguageMap } from './getLanguageMap';
 import {
   getConfigFilesWithModified,
   getErrorHandledReponse,
-  setAndGetCleanedConfigFiles,
+  isNetworkError,
+  setAndGetCleanedConfigFiles
 } from './helpers';
 import { saveHtmlAsPdf } from './saveHtmlAsPdf';
 
@@ -51,11 +53,21 @@ export default function registerIpcMainActionListeners(main: Main) {
     sendError(bodyJson);
   });
 
-  ipcMain.handle(IPC_ACTIONS.CHECK_FOR_UPDATES, () => {
-    if (!main.isDevelopment && !main.checkedForUpdate) {
-      autoUpdater.checkForUpdates();
-      main.checkedForUpdate = true;
+  ipcMain.handle(IPC_ACTIONS.CHECK_FOR_UPDATES, async () => {
+    if (main.isDevelopment || main.checkedForUpdate) {
+      return;
     }
+
+    try {
+      await autoUpdater.checkForUpdates();
+    } catch (error) {
+      if (isNetworkError(error as Error)) {
+        return;
+      }
+
+      emitMainProcessError(error);
+    }
+    main.checkedForUpdate = true;
   });
 
   ipcMain.handle(IPC_ACTIONS.GET_LANGUAGE_MAP, async (event, code) => {
@@ -105,7 +117,7 @@ export default function registerIpcMainActionListeners(main: Main) {
   });
 
   ipcMain.handle(IPC_ACTIONS.DELETE_FILE, async (_, filePath) => {
-    await fs.unlink(filePath);
+    return getErrorHandledReponse(async () => await fs.unlink(filePath));
   });
 
   ipcMain.handle(IPC_ACTIONS.GET_DB_LIST, async (_) => {

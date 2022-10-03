@@ -38,7 +38,6 @@
 <script>
 import { ConfigKeys } from 'fyo/core/types';
 import { ModelNameEnum } from 'models/types';
-import { incrementOpenCount } from 'src/utils/misc';
 import { computed } from 'vue';
 import WindowsTitleBar from './components/WindowsTitleBar.vue';
 import { handleErrorWithDialog } from './errorHandling';
@@ -49,6 +48,7 @@ import SetupWizard from './pages/SetupWizard/SetupWizard.vue';
 import setupInstance from './setup/setupInstance';
 import './styles/index.css';
 import { checkForUpdates } from './utils/ipcCalls';
+import { updateConfigFiles } from './utils/misc';
 import { Search } from './utils/search';
 import { routeTo } from './utils/ui';
 
@@ -94,8 +94,7 @@ export default {
     async setDesk(filePath) {
       this.activeScreen = 'Desk';
       await this.setDeskRoute();
-      const openCount = await incrementOpenCount(filePath);
-      await fyo.telemetry.start(openCount);
+      await fyo.telemetry.start(true);
       await checkForUpdates(false);
       this.dbPath = filePath;
       this.companyName = await fyo.getValue(
@@ -103,6 +102,7 @@ export default {
         'companyName'
       );
       await this.setSearcher();
+      await updateConfigFiles(fyo);
     },
     async setSearcher() {
       this.searcher = new Search(fyo);
@@ -149,7 +149,7 @@ export default {
     async showDbSelector() {
       fyo.config.set('lastSelectedFilePath', null);
       fyo.telemetry.stop();
-      fyo.purgeCache();
+      await fyo.purgeCache();
       this.activeScreen = 'DatabaseSelector';
       this.dbPath = '';
       this.searcher = null;

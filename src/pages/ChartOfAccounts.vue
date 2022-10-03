@@ -3,31 +3,33 @@
     <PageHeader :title="t`Chart of Accounts`" />
 
     <!-- Chart of Accounts -->
-    <div class="flex-1 flex flex-col mx-4 overflow-y-auto mb-4" v-if="root">
+    <div class="flex-1 flex flex-col overflow-y-auto mb-4" v-if="root">
       <!-- Chart of Accounts Indented List -->
       <template v-for="account in allAccounts" :key="account.name">
         <!-- Account List Item -->
         <div
           class="
-            mt-2
             py-2
             cursor-pointer
-            hover:bg-gray-100
+            hover:bg-gray-50
             group
             flex
             items-center
+            border-b
+            flex-shrink-0
+            pr-4
           "
           :class="[
             account.level !== 0 ? 'text-base' : 'text-lg',
             isQuickEditOpen(account) ? 'bg-gray-200' : '',
-            `pl-${account.level * 8}`,
           ]"
+          :style="`height: calc(var(--h-row-mid) + 1px); padding-left: calc(1rem + 2rem * ${account.level})`"
           @click="onClick(account)"
         >
-          <component :is="getIconComponent(account)" class="ml-2" />
+          <component :is="getIconComponent(account)" />
           <div class="flex items-baseline">
             <div
-              class="ml-3"
+              class="ml-4"
               :class="[!account.parentAccount && 'font-semibold']"
             >
               {{ account.name }}
@@ -69,25 +71,24 @@
         <div
           v-if="account.addingAccount || account.addingGroupAccount"
           class="
-            mt-2
             px-4
-            py-2
+            border-b
             cursor-pointer
-            hover:bg-gray-100
-            rounded-md
+            hover:bg-gray-50
             group
             flex
             items-center
+            text-base
           "
-          :class="`${account.level !== 0 ? 'text-base' : 'text-lg'} pl-${
-            (account.level + 1) * 8
-          }`"
+          :style="`height: calc(var(--h-row-mid) + 1px); padding-left: calc(1rem + 2rem * ${
+            account.level + 1
+          })`"
           :key="account.name + '-adding-account'"
         >
           <component
             :is="getIconComponent({ isGroup: account.addingGroupAccount })"
           />
-          <div class="flex items-baseline ml-3">
+          <div class="flex ml-4 h-row-mid items-center">
             <input
               class="focus:outline-none bg-transparent"
               :class="{ 'text-gray-600': insertingAccount }"
@@ -95,16 +96,26 @@
               :ref="account.name"
               @keydown.esc="cancelAddingAccount(account)"
               @keydown.enter="
-                (e) =>
-                  createNewAccount(
-                    e.target.value,
-                    account,
-                    account.addingGroupAccount
-                  )
+                (e) => createNewAccount(account, account.addingGroupAccount)
               "
               type="text"
+              v-model="newAccountName"
               :disabled="insertingAccount"
             />
+            <button
+              v-if="!insertingAccount"
+              class="
+                ml-4
+                text-xs text-gray-800
+                hover:text-gray-900
+                focus:outline-none
+              "
+              @click="
+                (e) => createNewAccount(account, account.addingGroupAccount)
+              "
+            >
+              {{ t`Save` }}
+            </button>
             <button
               v-if="!insertingAccount"
               class="
@@ -124,12 +135,13 @@
   </div>
 </template>
 <script>
+import { fyo } from 'src/initFyo';
 import { t } from 'fyo';
 import { isCredit } from 'models/helpers';
 import { ModelNameEnum } from 'models/types';
 import PageHeader from 'src/components/PageHeader';
-import { fyo } from 'src/initFyo';
-import { openQuickEdit } from 'src/utils/ui';
+import { docsPathMap } from 'src/utils/misc';
+import { docsPath, openQuickEdit } from 'src/utils/ui';
 import { nextTick } from 'vue';
 import { handleErrorWithDialog } from '../errorHandling';
 
@@ -142,6 +154,7 @@ export default {
       root: null,
       accounts: [],
       schemaName: 'Account',
+      newAccountName: '',
       insertingAccount: false,
     };
   },
@@ -150,6 +163,10 @@ export default {
     if (fyo.store.isDevelopment) {
       window.coa = this;
     }
+    docsPath.value = docsPathMap.ChartOfAccounts;
+  },
+  deactivated() {
+    docsPath.value = '';
   },
   methods: {
     getBalanceString(account) {
@@ -166,28 +183,44 @@ export default {
       };
       this.accounts = await this.getChildren();
     },
-    onClick(account) {
-      if (!account.isGroup) {
-        openQuickEdit({
-          schemaName: ModelNameEnum.Account,
-          name: account.name,
-        });
-      } else {
-        this.toggleChildren(account);
+    async onClick(account) {
+      let shouldOpen = !account.isGroup;
+      if (account.isGroup) {
+        shouldOpen = !(await this.toggleChildren(account));
       }
+
+      if (!shouldOpen) {
+        return;
+      }
+
+      await openQuickEdit({
+        schemaName: ModelNameEnum.Account,
+        name: account.name,
+      });
+
+      const doc = await fyo.doc.getDoc(ModelNameEnum.Account, account.name);
+      doc.once('afterDelete', () => this.fetchAccounts());
     },
     async toggleChildren(account) {
-      await this.fetchChildren(account);
+      const hasChildren = await this.fetchChildren(account);
+      if (!hasChildren) {
+        return false;
+      }
+
       account.expanded = !account.expanded;
       if (!account.expanded) {
         account.addingAccount = 0;
         account.addingGroupAccount = 0;
       }
+
+      return true;
     },
     async fetchChildren(account, force = false) {
       if (account.children == null || force) {
         account.children = await this.getChildren(account.name);
       }
+
+      return !!account?.children?.length;
     },
     async getChildren(parent = null) {
       const children = await fyo.db.getAll(ModelNameEnum.Account, {
@@ -232,12 +265,13 @@ export default {
     cancelAddingAccount(parentAccount) {
       parentAccount.addingAccount = 0;
       parentAccount.addingGroupAccount = 0;
+      this.newAccountName = '';
     },
-    async createNewAccount(accountName, parentAccount, isGroup) {
+    async createNewAccount(parentAccount, isGroup) {
       // freeze input
       this.insertingAccount = true;
 
-      accountName = accountName.trim();
+      const accountName = this.newAccountName.trim();
       let account = await fyo.doc.getNewDoc('Account');
       try {
         let { name, rootType, accountType } = parentAccount;
@@ -272,10 +306,7 @@ export default {
     },
     isQuickEditOpen(account) {
       let { edit, schemaName, name } = this.$route.query;
-      if (edit && schemaName === 'Account' && name === account.name) {
-        return true;
-      }
-      return false;
+      return !!(edit && schemaName === 'Account' && name === account.name);
     },
     getIconComponent(account) {
       let icons = {
@@ -312,11 +343,9 @@ export default {
 
       let icon = account.isGroup ? folder : leaf;
 
-      let c = {
+      return {
         template: icons[account.name] || icon,
       };
-
-      return c;
     },
   },
   computed: {

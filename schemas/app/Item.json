@@ -25,35 +25,11 @@
     {
       "fieldname": "unit",
       "label": "Unit Type",
-      "fieldtype": "Select",
-      "placeholder": "Unit Type",
+      "fieldtype": "Link",
+      "target": "UOM",
+      "create": true,
       "default": "Unit",
-      "options": [
-        {
-          "value": "Unit",
-          "label": "Unit"
-        },
-        {
-          "value": "Kg",
-          "label": "Kg"
-        },
-        {
-          "value": "Gram",
-          "label": "Gram"
-        },
-        {
-          "value": "Meter",
-          "label": "Meter"
-        },
-        {
-          "value": "Hour",
-          "label": "Hour"
-        },
-        {
-          "value": "Day",
-          "label": "Day"
-        }
-      ]
+      "placeholder": "Unit Type"
     },
     {
       "fieldname": "itemType",
@@ -100,6 +76,7 @@
       "fieldtype": "Link",
       "target": "Account",
       "placeholder": "Income",
+      "create": true,
       "required": true
     },
     {
@@ -108,6 +85,7 @@
       "fieldtype": "Link",
       "target": "Account",
       "placeholder": "Expense",
+      "create": true,
       "required": true
     },
     {
@@ -115,6 +93,7 @@
       "label": "Tax",
       "fieldtype": "Link",
       "target": "Tax",
+      "create": true,
       "placeholder": "Tax"
     },
     {

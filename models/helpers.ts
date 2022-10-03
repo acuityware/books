@@ -1,13 +1,12 @@
 import { Fyo, t } from 'fyo';
 import { Doc } from 'fyo/model/doc';
-import { Action, ColumnConfig } from 'fyo/model/types';
-import { NotFoundError } from 'fyo/utils/errors';
+import { Action, ColumnConfig, DocStatus, RenderData } from 'fyo/model/types';
 import { DateTime } from 'luxon';
 import { Money } from 'pesa';
 import { Router } from 'vue-router';
 import {
   AccountRootType,
-  AccountRootTypeEnum,
+  AccountRootTypeEnum
 } from './baseModels/Account/types';
 import { InvoiceStatus, ModelNameEnum } from './types';
 
@@ -76,21 +75,17 @@ export function getLedgerLinkAction(fyo: Fyo): Action {
 }
 
 export function getTransactionStatusColumn(): ColumnConfig {
-  const statusMap = {
-    Unpaid: t`Unpaid`,
-    Paid: t`Paid`,
-    Draft: t`Draft`,
-    Cancelled: t`Cancelled`,
-  };
+  const statusMap = getStatusMap();
 
   return {
     label: t`Status`,
     fieldname: 'status',
     fieldtype: 'Select',
-    render(doc: Doc) {
-      const status = getInvoiceStatus(doc) as InvoiceStatus;
+    render(doc) {
+      const status = getDocStatus(doc) as InvoiceStatus;
       const color = statusColor[status];
       const label = statusMap[status];
+
       return {
         template: `<Badge class="text-xs" color="${color}">${label}</Badge>`,
       };
@@ -98,27 +93,97 @@ export function getTransactionStatusColumn(): ColumnConfig {
   };
 }
 
-export const statusColor = {
+export const statusColor: Record<
+  DocStatus | InvoiceStatus,
+  string | undefined
+> = {
+  '': 'gray',
   Draft: 'gray',
   Unpaid: 'orange',
   Paid: 'green',
+  Saved: 'gray',
+  NotSaved: 'gray',
+  Submitted: 'green',
   Cancelled: 'red',
 };
 
-export function getInvoiceStatus(doc: Doc) {
-  let status = 'Unpaid';
-  if (!doc.submitted) {
-    status = 'Draft';
+export function getStatusMap(): Record<DocStatus | InvoiceStatus, string> {
+  return {
+    '': '',
+    Draft: t`Draft`,
+    Unpaid: t`Unpaid`,
+    Paid: t`Paid`,
+    Saved: t`Saved`,
+    NotSaved: t`Not Saved`,
+    Submitted: t`Submitted`,
+    Cancelled: t`Cancelled`,
+  };
+}
+
+export function getDocStatus(
+  doc?: RenderData | Doc
+): DocStatus | InvoiceStatus {
+  if (!doc) {
+    return '';
   }
 
-  if (doc.submitted && (doc.outstandingAmount as Money).isZero()) {
-    status = 'Paid';
+  if (doc.notInserted) {
+    return 'Draft';
+  }
+
+  if (doc.dirty) {
+    return 'NotSaved';
+  }
+
+  if (!doc.schema?.isSubmittable) {
+    return 'Saved';
+  }
+
+  return getSubmittableDocStatus(doc);
+}
+
+function getSubmittableDocStatus(doc: RenderData | Doc) {
+  if (
+    [ModelNameEnum.SalesInvoice, ModelNameEnum.PurchaseInvoice].includes(
+      doc.schema.name as ModelNameEnum
+    )
+  ) {
+    return getInvoiceStatus(doc);
+  }
+
+  if (!!doc.submitted && !doc.cancelled) {
+    return 'Submitted';
+  }
+
+  if (!!doc.submitted && !!doc.cancelled) {
+    return 'Cancelled';
+  }
+
+  return 'Saved';
+}
+
+export function getInvoiceStatus(doc: RenderData | Doc): InvoiceStatus {
+  if (
+    doc.submitted &&
+    !doc.cancelled &&
+    (doc.outstandingAmount as Money).isZero()
+  ) {
+    return 'Paid';
+  }
+
+  if (
+    doc.submitted &&
+    !doc.cancelled &&
+    (doc.outstandingAmount as Money).isPositive()
+  ) {
+    return 'Unpaid';
   }
 
   if (doc.cancelled) {
-    status = 'Cancelled';
+    return 'Cancelled';
   }
-  return status;
+
+  return 'Saved';
 }
 
 export async function getExchangeRate({
@@ -130,14 +195,12 @@ export async function getExchangeRate({
   toCurrency: string;
   date?: string;
 }) {
-  if (!date) {
-    date = DateTime.local().toISODate();
+  if (!fetch) {
+    return 1;
   }
 
-  if (!fromCurrency || !toCurrency) {
-    throw new NotFoundError(
-      'Please provide `fromCurrency` and `toCurrency` to get exchange rate.'
-    );
+  if (!date) {
+    date = DateTime.local().toISODate();
   }
 
   const cacheKey = `currencyExchangeRate:${date}:${fromCurrency}:${toCurrency}`;
@@ -149,25 +212,23 @@ export async function getExchangeRate({
     );
   }
 
-  if (!exchangeRate && fetch) {
-    try {
-      const res = await fetch(
-        ` https://api.vatcomply.com/rates?date=${date}&base=${fromCurrency}&symbols=${toCurrency}`
-      );
-      const data = await res.json();
-      exchangeRate = data.rates[toCurrency];
+  if (exchangeRate && exchangeRate !== 1) {
+    return exchangeRate;
+  }
 
-      if (localStorage) {
-        localStorage.setItem(cacheKey, String(exchangeRate));
-      }
-    } catch (error) {
-      console.error(error);
-      throw new Error(
-        `Could not fetch exchange rate for ${fromCurrency} -> ${toCurrency}`
-      );
-    }
-  } else {
-    exchangeRate = 1;
+  try {
+    const res = await fetch(
+      `https://api.vatcomply.com/rates?date=${date}&base=${fromCurrency}&symbols=${toCurrency}`
+    );
+    const data = await res.json();
+    exchangeRate = data.rates[toCurrency];
+  } catch (error) {
+    console.error(error);
+    exchangeRate ??= 1;
+  }
+
+  if (localStorage) {
+    localStorage.setItem(cacheKey, String(exchangeRate));
   }
 
   return exchangeRate;
@@ -189,3 +250,6 @@ export function isCredit(rootType: AccountRootType) {
       return true;
   }
 }
+
+// @ts-ignore
+window.gex = getExchangeRate;

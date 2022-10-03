@@ -14,7 +14,7 @@ import {
   flow,
   getFlowConstant,
   getRandomDates,
-  purchaseItemPartyMap,
+  purchaseItemPartyMap
 } from './helpers';
 import items from './items.json';
 import logo from './logo';
@@ -29,9 +29,7 @@ export async function setupDummyInstance(
   baseCount: number = 1000,
   notifier?: Notifier
 ) {
-  fyo.store.skipTelemetryLogging = true;
-
-  fyo.purgeCache();
+  await fyo.purgeCache();
   notifier?.(fyo.t`Setting Up Instance`, -1);
   const options = {
     logo: null,
@@ -46,6 +44,7 @@ export async function setupDummyInstance(
     chartOfAccounts: 'India - Chart of Accounts',
   };
   await setupInstance(dbPath, options, fyo);
+  fyo.store.skipTelemetryLogging = true;
 
   years = Math.floor(years);
   notifier?.(fyo.t`Creating Items and Parties`, -1);

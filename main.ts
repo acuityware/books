@@ -4,7 +4,7 @@ import {
   app,
   BrowserWindow,
   BrowserWindowConstructorOptions,
-  protocol,
+  protocol
 } from 'electron';
 import Store from 'electron-store';
 import { autoUpdater } from 'electron-updater';
@@ -26,7 +26,7 @@ export class Main {
   mainWindow: BrowserWindow | null = null;
 
   WIDTH = 1200;
-  HEIGHT = process.platform === 'win32' ? 926 : 900;
+  HEIGHT = process.platform === 'win32' ? 826 : 800;
 
   constructor() {
     this.icon = this.isDevelopment
@@ -40,6 +40,13 @@ export class Main {
     if (this.isDevelopment) {
       autoUpdater.logger = console;
     }
+
+    // https://github.com/electron-userland/electron-builder/issues/4987
+    app.commandLine.appendSwitch('disable-http2');
+    autoUpdater.requestHeaders = {
+      'Cache-Control':
+        'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0',
+    };
 
     Store.initRenderer();
 
@@ -77,8 +84,6 @@ export class Main {
     const options: BrowserWindowConstructorOptions = {
       width: this.WIDTH,
       height: this.HEIGHT,
-      minWidth: this.WIDTH,
-      minHeight: this.HEIGHT,
       title: this.title,
       titleBarStyle: 'hidden',
       trafficLightPosition: { x: 16, y: 16 },

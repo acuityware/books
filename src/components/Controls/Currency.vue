@@ -1,14 +1,15 @@
 <template>
   <div>
-    <div class="text-gray-600 text-sm mb-1" v-if="showLabel">
+    <div :class="labelClasses" v-if="showLabel">
       {{ df.label }}
     </div>
     <input
       v-show="showInput"
       ref="input"
-      :class="inputClasses"
+      class="text-right"
+      :class="[inputClasses, containerClasses]"
       :type="inputType"
-      :value="value.round()"
+      :value="value?.round()"
       :placeholder="inputPlaceholder"
       :readonly="isReadOnly"
       @blur="onBlur"
@@ -17,7 +18,8 @@
     />
     <div
       v-show="!showInput"
-      :class="[inputClasses, 'cursor-text whitespace-nowrap overflow-x-auto']"
+      class="whitespace-nowrap overflow-x-auto"
+      :class="[inputClasses, containerClasses, ,]"
       @click="activateInput"
       @focus="activateInput"
       tabindex="0"
@@ -61,6 +63,10 @@ export default {
       this.triggerChange(value);
     },
     activateInput() {
+      if (this.isReadOnly) {
+        return;
+      }
+
       this.showInput = true;
       nextTick(() => {
         this.focus();
@@ -69,7 +75,7 @@ export default {
   },
   computed: {
     formattedValue() {
-      return fyo.format(this.value, this.df, this.doc);
+      return fyo.format(this.value ?? fyo.pesa(0), this.df, this.doc);
     },
   },
 };

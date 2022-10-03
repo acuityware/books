@@ -29,6 +29,7 @@ import { Field } from 'schemas/types';
 import { fyo } from 'src/initFyo';
 import { getMapFromList } from 'utils';
 import { QueryFilter } from 'utils/db/types';
+import { logUnexpected } from 'utils/misc';
 
 export const ACC_NAME_WIDTH = 2;
 export const ACC_BAL_WIDTH = 1.25;
@@ -164,6 +165,14 @@ export abstract class AccountReport extends LedgerReport {
       for (const entry of map.get(account)!) {
         const key = this._getRangeMapKey(entry);
         if (key === null) {
+          continue;
+        }
+
+        if (!accountMap[entry.account]) {
+          logUnexpected({
+            message: 'accountMap[entry.account] is undefined',
+            more: { entry },
+          });
           continue;
         }
 
@@ -461,6 +470,10 @@ function setValueMapOnAccountTreeNodes(
   rangeGroupedMap: AccountNameValueMapMap
 ) {
   for (const name of rangeGroupedMap.keys()) {
+    if (!accountTree[name]) {
+      continue;
+    }
+
     const valueMap = rangeGroupedMap.get(name)!;
     accountTree[name].valueMap = valueMap;
     accountTree[name].prune = false;
@@ -539,13 +552,15 @@ function pruneAccountTree(accountTree: AccountTree) {
   }
 
   for (const root of Object.keys(accountTree)) {
-    accountTree[root].children = getPrunedChildren(accountTree[root].children!);
+    accountTree[root].children = getPrunedChildren(
+      accountTree[root].children ?? []
+    );
   }
 }
 
 function getPrunedChildren(children: AccountTreeNode[]): AccountTreeNode[] {
   return children.filter((child) => {
-    if (child.children) {
+    if (child.children?.length) {
       child.children = getPrunedChildren(child.children);
     }
 

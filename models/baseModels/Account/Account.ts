@@ -4,7 +4,8 @@ import {
   DefaultMap,
   FiltersMap,
   ListViewSettings,
-  TreeViewSettings,
+  RequiredMap,
+  TreeViewSettings
 } from 'fyo/model/types';
 import { QueryFilter } from 'utils/db/types';
 import { AccountRootType, AccountRootTypeEnum, AccountType } from './types';
@@ -25,6 +26,16 @@ export class Account extends Doc {
   get isCredit() {
     return !this.isDebit;
   }
+
+  required: RequiredMap = {
+    /**
+     * Added here cause rootAccounts don't have parents
+     * they are created during initialization. if this is
+     * added to the schema it will cause NOT NULL errors
+     */
+
+    parentAccount: () => !!this.fyo.singles?.AccountingSettings?.setupComplete,
+  };
 
   static defaults: DefaultMap = {
     /**

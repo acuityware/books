@@ -1,12 +1,19 @@
 <template>
-  <div class="my-4 mx-4 flex justify-between window-drag">
-    <h1 class="text-2xl font-bold select-none" v-if="title && !backLink">
+  <div
+    class="px-4 flex justify-between items-center h-row-largest flex-shrink-0"
+    :class="[
+      border ? 'border-b' : '',
+      platform !== 'Windows' ? 'window-drag' : '',
+    ]"
+  >
+    <h1 class="text-xl font-semibold select-none" v-if="title">
       {{ title }}
     </h1>
-    <BackLink v-if="backLink" />
-    <div class="flex items-stretch window-no-drag gap-2">
+    <div class="flex items-stretch window-no-drag gap-2 ml-auto">
       <slot />
-      <SearchBar v-if="!hideSearch"/>
+      <div class="border-r" v-if="showBorder" />
+      <BackLink v-if="backLink" class="window-no-drag" />
+      <SearchBar v-if="!hideSearch" />
     </div>
   </div>
 </template>
@@ -17,9 +24,16 @@ import SearchBar from './SearchBar.vue';
 export default {
   props: {
     title: { type: String, default: '' },
-    backLink: { type: Boolean, default: false },
+    backLink: { type: Boolean, default: true },
     hideSearch: { type: Boolean, default: false },
+    border: { type: Boolean, default: true },
+    searchborder: { type: Boolean, default: true },
   },
   components: { SearchBar, BackLink },
+  computed: {
+    showBorder() {
+      return !!this.$slots.default && this.searchborder;
+    },
+  },
 };
 </script>

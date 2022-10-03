@@ -1,11 +1,14 @@
 import Account from './app/Account.json';
 import AccountingLedgerEntry from './app/AccountingLedgerEntry.json';
 import AccountingSettings from './app/AccountingSettings.json';
+import Misc from './app/Misc.json';
 import Address from './app/Address.json';
 import Color from './app/Color.json';
 import CompanySettings from './app/CompanySettings.json';
 import Currency from './app/Currency.json';
 import GetStarted from './app/GetStarted.json';
+import Invoice from './app/Invoice.json';
+import InvoiceItem from './app/InvoiceItem.json';
 import Item from './app/Item.json';
 import JournalEntry from './app/JournalEntry.json';
 import JournalEntryAccount from './app/JournalEntryAccount.json';
@@ -22,6 +25,7 @@ import SetupWizard from './app/SetupWizard.json';
 import Tax from './app/Tax.json';
 import TaxDetail from './app/TaxDetail.json';
 import TaxSummary from './app/TaxSummary.json';
+import UOM from './app/UOM.json';
 import PatchRun from './core/PatchRun.json';
 import SingleValue from './core/SingleValue.json';
 import SystemSettings from './core/SystemSettings.json';
@@ -45,6 +49,7 @@ export const metaSchemas: SchemaStub[] = [
 ];
 
 export const appSchemas: Schema[] | SchemaStub[] = [
+  Misc as Schema,
   SetupWizard as Schema,
   GetStarted as Schema,
 
@@ -62,6 +67,7 @@ export const appSchemas: Schema[] | SchemaStub[] = [
   Party as Schema,
   Address as Schema,
   Item as Schema,
+  UOM as Schema,
 
   Payment as Schema,
   PaymentFor as Schema,
@@ -69,11 +75,13 @@ export const appSchemas: Schema[] | SchemaStub[] = [
   JournalEntry as Schema,
   JournalEntryAccount as Schema,
 
-  PurchaseInvoice as Schema,
-  PurchaseInvoiceItem as Schema,
-
+  Invoice as Schema,
   SalesInvoice as Schema,
-  SalesInvoiceItem as Schema,
+  PurchaseInvoice as Schema,
+
+  InvoiceItem as Schema,
+  SalesInvoiceItem as SchemaStub,
+  PurchaseInvoiceItem as SchemaStub,
 
   Tax as Schema,
   TaxDetail as Schema,

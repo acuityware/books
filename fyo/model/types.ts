@@ -1,6 +1,6 @@
 import { DocValue, DocValueMap } from 'fyo/core/types';
 import SystemSettings from 'fyo/models/SystemSettings';
-import { FieldType, SelectOption } from 'schemas/types';
+import { FieldType, Schema, SelectOption } from 'schemas/types';
 import { QueryFilter } from 'utils/db/types';
 import { Router } from 'vue-router';
 import { Doc } from './doc';
@@ -18,7 +18,7 @@ import { Doc } from './doc';
  * - `Required`: Regular function used to decide if a value is mandatory (there are !notnul in the db).
  */
 export type FormulaReturn = DocValue | DocValueMap[] | undefined | Doc[];
-export type Formula = () => Promise<FormulaReturn> | FormulaReturn;
+export type Formula = (fieldname?: string) => Promise<FormulaReturn> | FormulaReturn;
 export type FormulaConfig = { dependsOn?: string[]; formula: Formula };
 export type Default = () => DocValue;
 export type Validation = (value: DocValue) => Promise<void> | void;
@@ -69,12 +69,17 @@ export interface Action {
   };
 }
 
+export interface RenderData {
+  schema: Schema,
+  [key: string]: DocValue | Schema
+}
+
 export interface ColumnConfig {
   label: string;
   fieldtype: FieldType;
   fieldname?: string;
   size?: string;
-  render?: (doc: Doc) => { template: string };
+  render?: (doc: RenderData) => { template: string };
   getValue?: (doc: Doc) => string;
 }
 
@@ -88,3 +93,11 @@ export interface TreeViewSettings {
   parentField: string;
   getRootLabel: () => Promise<string>;
 }
+
+export type DocStatus =
+  | ''
+  | 'Draft'
+  | 'Saved'
+  | 'NotSaved'
+  | 'Submitted'
+  | 'Cancelled';

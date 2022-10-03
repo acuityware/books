@@ -1,3 +1,7 @@
+import { theme } from '../../tailwind.config';
+
+export const uicolors = theme.extend.colors;
+
 export const indicators = {
   GRAY: 'grey',
   GREY: 'grey',
@@ -10,12 +14,6 @@ export const indicators = {
   BLACK: 'black',
 };
 
-export const statusColor = {
-  Draft: 'gray',
-  Unpaid: 'orange',
-  Paid: 'green',
-  Cancelled: 'red',
-};
 
 const getValidColor = (color: string) => {
   const isValid = [
@@ -34,7 +32,8 @@ const getValidColor = (color: string) => {
 };
 
 export function getBgColorClass(color: string) {
-  return `bg-${getValidColor(color)}-100`;
+  const vcolor = getValidColor(color);
+  return `bg-${vcolor}-200`;
 }
 
 export function getColorClass(color: string, type: 'bg' | 'text', value = 300) {
@@ -42,7 +41,7 @@ export function getColorClass(color: string, type: 'bg' | 'text', value = 300) {
 }
 
 export function getTextColorClass(color: string) {
-  return `text-${getValidColor(color)}-600`;
+  return `text-${getValidColor(color)}-700`;
 }
 
 export function getBgTextColorClass(color: string) {

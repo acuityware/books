@@ -1,7 +1,13 @@
 <template>
-  <div class="border-l h-full overflow-auto">
+  <div
+    class="border-l h-full overflow-auto"
+    :class="white ? 'bg-white' : 'bg-gray-25'"
+  >
     <!-- Quick edit Tool bar -->
-    <div class="flex items-center justify-between px-4 pt-4">
+    <div
+      class="flex items-center justify-between px-4 h-row-largest"
+      :class="{ 'border-b': showName }"
+    >
       <!-- Close Button and Status Text -->
       <div class="flex items-center">
         <Button :icon="true" @click="routeToPrevious">
@@ -13,15 +19,15 @@
       </div>
 
       <!-- Actions, Badge and Status Change Buttons -->
-      <div class="flex items-stretch">
-        <DropdownWithActions :actions="actions" />
+      <div class="flex items-stretch gap-2" v-if="showSave">
         <StatusBadge :status="status" />
+        <DropdownWithActions :actions="actions" />
         <Button
           :icon="true"
           @click="sync"
           type="primary"
           v-if="doc?.dirty || doc?.notInserted"
-          class="ml-2 text-white text-xs"
+          class="text-white text-xs"
         >
           {{ t`Save` }}
         </Button>
@@ -35,7 +41,7 @@
             !doc?.notInserted &&
             !(doc?.cancelled || false)
           "
-          class="ml-2 text-white text-xs"
+          class="text-white text-xs"
         >
           {{ t`Submit` }}
         </Button>
@@ -43,7 +49,11 @@
     </div>
 
     <!-- Name and image -->
-    <div class="p-4 gap-2 flex-center flex flex-col items-center" v-if="doc">
+    <div
+      class="px-4 flex-center flex flex-col items-center gap-1.5"
+      style="height: calc(var(--h-row-mid) * 2 + 1px)"
+      v-if="doc && showName"
+    >
       <FormControl
         v-if="imageField"
         :df="imageField"
@@ -53,7 +63,7 @@
         :letter-placeholder="doc[titleField.fieldname]?.[0] ?? null"
       />
       <FormControl
-        input-class="text-center"
+        input-class="text-center h-8 bg-transparent"
         ref="titleControl"
         v-if="titleField"
         :df="titleField"
@@ -82,6 +92,8 @@
 <script>
 import { computed } from '@vue/reactivity';
 import { t } from 'fyo';
+import { Doc } from 'fyo/model/doc';
+import { getDocStatus } from 'models/helpers';
 import Button from 'src/components/Button.vue';
 import FormControl from 'src/components/Controls/FormControl.vue';
 import DropdownWithActions from 'src/components/DropdownWithActions.vue';
@@ -97,6 +109,13 @@ export default {
     name: String,
     schemaName: String,
     defaults: String,
+    white: { type: Boolean, default: false },
+    routeBack: { type: Boolean, default: true },
+    showName: { type: Boolean, default: true },
+    showSave: { type: Boolean, default: true },
+    sourceDoc: { type: Doc, default: null },
+    loadOnClose: { type: Boolean, default: true },
+    sourceFields: { type: Array, default: () => [] },
     hideFields: { type: Array, default: () => [] },
     showFields: { type: Array, default: () => [] },
   },
@@ -107,6 +126,7 @@ export default {
     TwoColumnForm,
     DropdownWithActions,
   },
+  emits: ['close'],
   provide() {
     return {
       schemaName: this.schemaName,
@@ -136,17 +156,20 @@ export default {
     await this.fetchFieldsAndDoc();
   },
   computed: {
+    isChild() {
+      return !!this?.doc?.schema?.isChild;
+    },
     schema() {
       return fyo.schemaMap[this.schemaName] ?? null;
     },
     status() {
-      if (this.doc && this.doc.notInserted) {
-        return 'Draft';
-      }
-
-      return '';
+      return getDocStatus(this.doc);
     },
     fields() {
+      if (this.sourceFields?.length) {
+        return this.sourceFields;
+      }
+
       if (!this.schema) {
         return [];
       }
@@ -210,8 +233,13 @@ export default {
         return;
       }
 
-      if (readOnly) {
+      const isManual = this.schema.naming === 'manual';
+      const isNumberSeries = fyo.getField(this.schemaName, 'numberSeries');
+      if (readOnly && (!this?.doc[fieldname] || isNumberSeries)) {
         this.doc.set(fieldname, t`New ${this.schema.label}`);
+      }
+
+      if (this?.doc[fieldname] && !isManual) {
         return;
       }
 
@@ -222,6 +250,10 @@ export default {
       }, 300);
     },
     async fetchDoc() {
+      if (this.sourceDoc) {
+        return (this.doc = this.sourceDoc);
+      }
+
       if (!this.schemaName) {
         this.$router.back();
       }
@@ -275,10 +307,15 @@ export default {
       }
     },
     routeToPrevious() {
-      if (this.doc.dirty && !this.doc.notInserted) {
+      if (this.loadOnClose && this.doc.dirty && !this.doc.notInserted) {
         this.doc.load();
       }
-      this.$router.back();
+
+      if (this.routeBack) {
+        this.$router.back();
+      } else {
+        this.$emit('close');
+      }
     },
     setTitleSize() {
       if (!this.$refs.titleControl) {

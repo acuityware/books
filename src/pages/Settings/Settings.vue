@@ -1,22 +1,8 @@
 <template>
-  <div class="flex flex-col overflow-hidden">
-    <PageHeader :title="t`Settings`" />
-    <div
-      class="
-        border
-        rounded-lg
-        shadow
-        h-full
-        flex flex-col
-        justify-between
-        self-center
-        mt-2
-        w-form
-        h-form
-      "
-    >
+  <FormContainer :title="t`Settings`" :searchborder="false">
+    <template #body>
       <!-- Icon Tab Bar -->
-      <div class="flex justify-around mb-4 mt-6">
+      <div class="flex justify-around mb-2 mt-4">
         <div
           v-for="(tab, i) in tabs"
           :key="tab.label"
@@ -39,18 +25,20 @@
       <div class="flex-1 overflow-y-auto">
         <component :is="activeTabComponent" @change="handleChange" />
       </div>
-    </div>
-  </div>
+    </template>
+  </FormContainer>
 </template>
 <script>
 import { ipcRenderer } from 'electron';
 import { t } from 'fyo';
 import Button from 'src/components/Button.vue';
+import FormContainer from 'src/components/FormContainer.vue';
 import Icon from 'src/components/Icon.vue';
 import PageHeader from 'src/components/PageHeader.vue';
 import Row from 'src/components/Row.vue';
 import StatusBadge from 'src/components/StatusBadge.vue';
-import { showToast } from 'src/utils/ui';
+import { docsPathMap } from 'src/utils/misc';
+import { docsPath, showToast } from 'src/utils/ui';
 import { IPC_MESSAGES } from 'utils/messages';
 import { h, markRaw } from 'vue';
 import TabGeneral from './TabGeneral.vue';
@@ -64,6 +52,7 @@ export default {
     StatusBadge,
     Button,
     Row,
+    FormContainer,
   },
   data() {
     return {
@@ -94,8 +83,10 @@ export default {
   },
   activated() {
     this.setActiveTab();
+    docsPath.value = docsPathMap.Settings;
   },
   deactivated() {
+    docsPath.value = '';
     if (this.fieldsChanged.length === 0) {
       return;
     }
@@ -104,7 +95,8 @@ export default {
     if (
       fieldnames.includes('displayPrecision') ||
       fieldnames.includes('hideGetStarted') ||
-      fieldnames.includes('displayPrecision')
+      fieldnames.includes('displayPrecision') ||
+      fieldnames.includes('enableDiscounting')
     ) {
       this.showReloadToast();
     }
@@ -129,9 +121,11 @@ export default {
     },
     setActiveTab() {
       const { tab } = this.$route.query;
-      const index = this.tabs.findIndex((i) => i.key === tab || 'Invoice');
+      const index = this.tabs.findIndex((i) => i.key === tab);
       if (index !== -1) {
         this.activeTab = index;
+      } else {
+        this.activeTab = 0;
       }
     },
     getIconComponent(tab) {

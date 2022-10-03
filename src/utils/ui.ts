@@ -13,7 +13,7 @@ import { handleErrorWithDialog } from 'src/errorHandling';
 import { fyo } from 'src/initFyo';
 import router from 'src/router';
 import { IPC_ACTIONS } from 'utils/messages';
-import { App, createApp, h } from 'vue';
+import { App, createApp, h, ref } from 'vue';
 import { RouteLocationRaw } from 'vue-router';
 import { stringifyCircular } from './';
 import {
@@ -22,6 +22,8 @@ import {
   SettingsTab,
   ToastOptions,
 } from './types';
+
+export const docsPath = ref('');
 
 export async function openQuickEdit({
   schemaName,
@@ -148,7 +150,7 @@ export async function routeTo(route: string | RouteLocationRaw) {
 export async function deleteDocWithPrompt(doc: Doc) {
   const schemaLabel = fyo.schemaMap[doc.schemaName]!.label;
   let detail = t`This action is permanent.`;
-  if (doc.isTransactional) {
+  if (doc.isTransactional && doc.isSubmitted) {
     detail = t`This action is permanent and will delete associated ledger entries.`;
   }
 
@@ -289,9 +291,7 @@ function getDeleteAction(doc: Doc): Action {
     component: {
       template: '<span class="text-red-700">{{ t`Delete` }}</span>',
     },
-    condition: (doc: Doc) =>
-      (!doc.notInserted && !doc.schema.isSubmittable && !doc.schema.isSingle) ||
-      doc.isCancelled,
+    condition: (doc: Doc) => doc.canDelete,
     async action() {
       const res = await deleteDocWithPrompt(doc);
       if (res) {

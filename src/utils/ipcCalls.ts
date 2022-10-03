@@ -3,18 +3,48 @@
  */
 import { ipcRenderer } from 'electron';
 import { t } from 'fyo';
+import { BaseError } from 'fyo/utils/errors';
+import { BackendResponse } from 'utils/ipc/types';
 import { IPC_ACTIONS, IPC_MESSAGES } from 'utils/messages';
 import { setLanguageMap } from './language';
-import { WindowAction } from './types';
-import { showToast } from './ui';
+import { showMessageDialog, showToast } from './ui';
 
 export async function checkForUpdates() {
   await ipcRenderer.invoke(IPC_ACTIONS.CHECK_FOR_UPDATES);
   await setLanguageMap();
 }
 
+export async function openLink(link: string) {
+  ipcRenderer.send(IPC_MESSAGES.OPEN_EXTERNAL, link);
+}
+
 export async function deleteDb(filePath: string) {
-  await ipcRenderer.invoke(IPC_ACTIONS.DELETE_FILE, filePath);
+  const { error } = (await ipcRenderer.invoke(
+    IPC_ACTIONS.DELETE_FILE,
+    filePath
+  )) as BackendResponse;
+
+  if (error?.code === 'EBUSY') {
+    showMessageDialog({
+      message: t`Delete Failed`,
+      detail: t`Please restart and try again`,
+    });
+  } else if (error?.code === 'ENOENT') {
+    showMessageDialog({
+      message: t`Delete Failed`,
+      detail: t`File ${filePath} does not exist`,
+    });
+  } else if (error?.code === 'EPERM') {
+    showMessageDialog({
+      message: t`Cannot Delete`,
+      detail: t`Close Frappe Books and try manually`,
+    });
+  } else if (error) {
+    const err = new BaseError(500, error.message);
+    err.name = error.name;
+    err.stack = error.stack;
+    throw err;
+  }
 }
 
 export async function saveData(data: string, savePath: string) {

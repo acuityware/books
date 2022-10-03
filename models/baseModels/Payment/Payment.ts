@@ -10,10 +10,15 @@ import {
   HiddenMap,
   ListViewSettings,
   RequiredMap,
-  ValidationMap,
+  ValidationMap
 } from 'fyo/model/types';
 import { ValidationError } from 'fyo/utils/errors';
-import { getLedgerLinkAction } from 'models/helpers';
+import {
+  getDocStatus,
+  getLedgerLinkAction,
+  getStatusMap,
+  statusColor
+} from 'models/helpers';
 import { LedgerPosting } from 'models/Transactional/LedgerPosting';
 import { Transactional } from 'models/Transactional/Transactional';
 import { ModelNameEnum } from 'models/types';
@@ -317,17 +322,31 @@ export class Payment extends Transactional {
   formulas: FormulaMap = {
     account: {
       formula: async () => {
-        if (this.paymentMethod === 'Cash' && this.paymentType === 'Pay') {
+        const hasCash = await this.fyo.db.exists(ModelNameEnum.Account, 'Cash');
+        if (
+          this.paymentMethod === 'Cash' &&
+          this.paymentType === 'Pay' &&
+          hasCash
+        ) {
           return 'Cash';
         }
+
+        return null;
       },
       dependsOn: ['paymentMethod', 'paymentType'],
     },
     paymentAccount: {
       formula: async () => {
-        if (this.paymentMethod === 'Cash' && this.paymentType === 'Receive') {
+        const hasCash = await this.fyo.db.exists(ModelNameEnum.Account, 'Cash');
+        if (
+          this.paymentMethod === 'Cash' &&
+          this.paymentType === 'Receive' &&
+          hasCash
+        ) {
           return 'Cash';
         }
+
+        return null;
       },
       dependsOn: ['paymentMethod', 'paymentType'],
     },
@@ -348,7 +367,7 @@ export class Payment extends Transactional {
 
         const outstanding = partyDoc.outstandingAmount as Money;
         if (outstanding?.isZero() ?? true) {
-          return '';
+          return this.paymentType;
         }
 
         if (outstanding?.isPositive()) {
@@ -360,6 +379,10 @@ export class Payment extends Transactional {
     amount: {
       formula: async () => this.getSum('for', 'amount', false),
       dependsOn: ['for'],
+    },
+    amountPaid: {
+      formula: async () => this.amount!.sub(this.writeoff!),
+      dependsOn: ['amount', 'writeoff', 'for'],
     },
   };
 
@@ -399,6 +422,7 @@ export class Payment extends Transactional {
   hidden: HiddenMap = {
     referenceId: () => this.paymentMethod === 'Cash',
     clearanceDate: () => this.paymentMethod === 'Cash',
+    amountPaid: () => this.writeoff?.isZero() ?? true,
   };
 
   static filters: FiltersMap = {
@@ -449,19 +473,12 @@ export class Payment extends Transactional {
           fieldtype: 'Select',
           size: 'small',
           render(doc) {
-            let status = 'Draft';
-            let color = 'gray';
-            if (doc.submitted) {
-              color = 'green';
-              status = 'Submitted';
-            }
-            if (doc.cancelled) {
-              color = 'red';
-              status = 'Cancelled';
-            }
+            const status = getDocStatus(doc);
+            const color = statusColor[status] ?? 'gray';
+            const label = getStatusMap()[status];
 
             return {
-              template: `<Badge class="text-xs" color="${color}">${status}</Badge>`,
+              template: `<Badge class="text-xs" color="${color}">${label}</Badge>`,
             };
           },
         },

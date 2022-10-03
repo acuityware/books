@@ -1,8 +1,9 @@
 <template>
-  <div class="flex justify-between gap-8">
+  <div class="flex">
     <div
-      class="flex-col justify-between flex-1"
       v-for="(invoice, i) in invoices"
+      class="flex-col justify-between w-full p-4"
+      :class="i === 0 ? 'border-r' : ''"
       :key="invoice.title"
     >
       <!-- Title and Period Selector -->
@@ -26,27 +27,27 @@
       </SectionHeader>
 
       <!-- Widget Body -->
-      <div>
+      <div class="mt-4">
         <!-- Paid & Unpaid Amounts -->
-        <div class="mt-6 flex justify-between">
+        <div class="flex justify-between">
           <!-- Paid -->
           <div
-            class="text-sm bold"
+            class="text-sm font-medium"
             :class="{ 'bg-gray-200 text-gray-200 rounded': !invoice.count }"
           >
             {{ fyo.format(invoice.paid, 'Currency') }}
-            <span :class="{ 'text-gray-900': invoice.count }">{{
+            <span :class="{ 'text-gray-900 font-normal': invoice.count }">{{
               t`Paid`
             }}</span>
           </div>
 
           <!-- Unpaid -->
           <div
-            class="text-sm"
+            class="text-sm font-medium"
             :class="{ 'bg-gray-200 text-gray-200 rounded': !invoice.count }"
           >
             {{ fyo.format(invoice.unpaid, 'Currency') }}
-            <span :class="{ 'text-gray-900': invoice.count }">{{
+            <span :class="{ 'text-gray-900 font-normal': invoice.count }">{{
               t`Unpaid`
             }}</span>
           </div>
@@ -63,6 +64,8 @@
             :class="
               invoice.count && invoice.color == 'blue'
                 ? 'bg-blue-200'
+                : invoice.hasData
+                ? 'bg-pink-200'
                 : 'bg-gray-200'
             "
           ></div>
@@ -71,7 +74,9 @@
             :class="
               invoice.count && invoice.color == 'blue'
                 ? 'bg-blue-500'
-                : 'bg-gray-500'
+                : invoice.hasData
+                ? 'bg-pink-500'
+                : 'bg-gray-400'
             "
             :style="`width: ${invoice.barWidth}%`"
           ></div>
@@ -83,7 +88,7 @@
       :offset="15"
       :show="idx >= 0"
       placement="top"
-      class="text-sm shadow-md px-2 py-1 bg-white text-gray-900 border-l-2"
+      class="text-sm shadow-md px-2 py-1 bg-white text-gray-900 border-l-4"
       :style="{ borderColor: colors[idx] }"
     >
       <div class="flex justify-between gap-4">
@@ -106,6 +111,7 @@ import { ModelNameEnum } from 'models/types';
 import Button from 'src/components/Button.vue';
 import MouseFollower from 'src/components/MouseFollower.vue';
 import { fyo } from 'src/initFyo';
+import { uicolors } from 'src/utils/colors';
 import { getDatesAndPeriodList } from 'src/utils/misc';
 import { routeTo } from 'src/utils/ui';
 import PeriodSelector from './PeriodSelector.vue';
@@ -121,7 +127,7 @@ export default {
   },
   data: () => ({
     idx: -1,
-    colors: ['#33A1FF', '#B7BFC6'],
+    colors: [uicolors.blue['500'], uicolors.pink['500']],
     invoices: [
       {
         title: t`Sales Invoices`,
@@ -147,7 +153,7 @@ export default {
         count: 0,
         unpaidCount: 0,
         paidCount: 0,
-        color: 'gray',
+        color: 'pink',
         periodKey: 'purchaseInvoicePeriod',
         barWidth: 60,
       },

@@ -1,29 +1,13 @@
 <template>
   <div>
     <!-- Search Bar Button -->
-    <button
-      @click="open"
-      class="
-        focus:outline-none
-        shadow-button
-        flex flex-row
-        gap-1
-        text-base text-gray-700
-        bg-gray-100
-        rounded-md
-        h-8
-        w-48
-        px-3
-        items-center
-        hover:bg-gray-200
-      "
-    >
-      <feather-icon name="search" class="w-4 h-4" />
+    <Button @click="open" class="px-2" :padding="false">
+      <feather-icon name="search" class="w-4 h-4 mr-1 text-gray-800" />
       <p>{{ t`Search` }}</p>
-      <div class="text-gray-400 ml-auto text-sm">
+      <div class="text-gray-500 px-1 ml-4 text-sm">
         {{ modKey('k') }}
       </div>
-    </button>
+    </Button>
   </div>
 
   <!-- Search Modal -->
@@ -48,7 +32,7 @@
           text-2xl
           focus:outline-none
           w-full
-          placeholder-gray-700
+          placeholder-gray-500
           text-gray-900
           rounded-md
           p-3
@@ -63,21 +47,23 @@
         v-for="(si, i) in suggestions"
         :key="`${i}-${si.key}`"
         ref="suggestions"
-        class="hover:bg-gray-50 cursor-pointer border-l-2 border-white"
-        :class="idx === i ? 'border-blue-500 bg-gray-50 -pl-1' : ''"
+        class="hover:bg-gray-50 cursor-pointer"
+        :class="idx === i ? 'border-blue-500 bg-gray-50 border-l-4' : ''"
         @click="select(i)"
       >
-        <!-- Doc Search List Item -->
+        <!-- Search List Item -->
         <div
-          v-if="si.group === 'Docs'"
           class="flex w-full justify-between px-3 items-center"
-          style="height: 48px; margin-left: -2px"
+          style="height: var(--h-row-mid)"
         >
           <div class="flex items-center">
-            <p class="text-gray-900">
+            <p
+              :class="idx === i ? 'text-blue-600' : 'text-gray-900'"
+              :style="idx === i ? 'margin-left: -4px' : ''"
+            >
               {{ si.label }}
             </p>
-            <p class="text-gray-600 text-sm ml-3">
+            <p class="text-gray-600 text-sm ml-3" v-if="si.group === 'Docs'">
               {{ si.more.filter(Boolean).join(', ') }}
             </p>
           </div>
@@ -85,26 +71,10 @@
             class="text-sm text-right justify-self-end"
             :class="`text-${groupColorMap[si.group]}-500`"
           >
-            {{ si.schemaLabel }}
+            {{ si.group === 'Docs' ? si.schemaLabel : groupLabelMap[si.group] }}
           </p>
         </div>
 
-        <!-- Doc Search List Item -->
-        <div
-          v-else
-          class="flex flex-row w-full justify-between px-3 items-center"
-          style="height: 48px; margin-left: -2px"
-        >
-          <p class="text-gray-900">
-            {{ si.label }}
-          </p>
-          <div
-            class="text-sm text-right justify-self-end"
-            :class="`text-${groupColorMap[si.group]}-500`"
-          >
-            {{ groupLabelMap[si.group] }}
-          </div>
-        </div>
         <hr v-if="i !== suggestions.length - 1" />
       </div>
     </div>
@@ -126,7 +96,7 @@
           </button>
         </div>
         <button
-          class="hover:bg-gray-100 px-2 py-0.5 rounded text-gray-800"
+          class="hover:text-gray-900 py-0.5 rounded text-gray-700"
           @click="showMore = !showMore"
         >
           {{ showMore ? t`Less Filters` : t`More Filters` }}
@@ -174,19 +144,26 @@
       </div>
 
       <!-- Keybindings Help -->
-      <div class="flex text-sm text-gray-500 justify-between">
+      <div class="flex text-sm text-gray-500 justify-between items-baseline">
         <div class="flex gap-4">
           <p>↑↓ {{ t`Navigate` }}</p>
           <p>↩ {{ t`Select` }}</p>
           <p><span class="tracking-tighter">esc</span> {{ t`Close` }}</p>
+          <button
+            class="flex items-center hover:text-gray-800"
+            @click="openDocs"
+          >
+            <feather-icon name="help-circle" class="w-4 h-4 mr-1" />
+            {{ t`Help` }}
+          </button>
         </div>
 
-        <p v-if="searcher?.numSearches" class="ml-auto mr-2">
+        <p v-if="searcher?.numSearches" class="ml-auto">
           {{ t`${suggestions.length} out of ${searcher.numSearches}` }}
         </p>
 
         <div
-          class="border border-gray-100 rounded flex justify-self-end"
+          class="border border-gray-100 rounded flex justify-self-end ml-2"
           v-if="(searcher?.numSearches ?? 0) > 50"
         >
           <template
@@ -211,10 +188,13 @@
 <script>
 import { fyo } from 'src/initFyo';
 import { getBgTextColorClass } from 'src/utils/colors';
+import { openLink } from 'src/utils/ipcCalls';
+import { docsPathMap } from 'src/utils/misc';
 import { getGroupLabelMap, searchGroups } from 'src/utils/search';
 import { useKeys } from 'src/utils/vueUtils';
 import { getIsNullOrUndef } from 'utils/';
 import { nextTick, watch } from 'vue';
+import Button from './Button.vue';
 import Modal from './Modal.vue';
 
 export default {
@@ -234,7 +214,7 @@ export default {
     };
   },
   inject: ['searcher'],
-  components: { Modal },
+  components: { Modal, Button },
   async mounted() {
     if (fyo.store.isDevelopment) {
       window.search = this;
@@ -270,6 +250,9 @@ export default {
     this.openModal = false;
   },
   methods: {
+    openDocs() {
+      openLink('https://docs.frappebooks.com/' + docsPathMap.Search);
+    },
     setFilter(keys) {
       if (!keys.has('MetaLeft') && !keys.has('ControlLeft')) {
         return;
@@ -304,7 +287,7 @@ export default {
     },
     open() {
       this.openModal = true;
-      this.searcher.updateKeywords();
+      this.searcher?.updateKeywords();
       nextTick(() => {
         this.$refs.input.focus();
       });
@@ -337,6 +320,10 @@ export default {
       ref.scrollIntoView({ block: 'nearest' });
     },
     getGroupFilterButtonClass(g) {
+      if (!this.searcher) {
+        return '';
+      }
+
       const isOn = this.searcher.filters.groupFilters[g];
       const color = this.groupColorMap[g];
       if (isOn) {
@@ -383,6 +370,10 @@ export default {
       }, {});
     },
     suggestions() {
+      if (!this.searcher) {
+        return [];
+      }
+
       const suggestions = this.searcher.search(this.inputValue);
       if (this.limit === -1) {
         return suggestions;

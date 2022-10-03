@@ -9,8 +9,8 @@
         size="small"
         :df="df"
         :value="doc[df.fieldname]"
-        :read-only="evaluateReadOnly(df)"
         @change="async (value) => await onChange(df, value)"
+        :read-only="readOnly"
       />
 
       <!-- Inline Field Form (Eg: Address) -->
@@ -20,6 +20,8 @@
         :key="`${df.fieldname}-inline`"
       >
         <TwoColumnForm
+          class="overflow-auto"
+          style="max-height: calc((var(--h-row-mid) + 1px) * 3 - 1px)"
           ref="inlineEditForm"
           :doc="inlineEditDoc"
           :fields="getInlineEditFields(df)"
@@ -27,15 +29,19 @@
           :no-border="true"
           :focus-first-input="true"
           :autosave="false"
+          :read-only="readOnly"
           @error="(msg) => $emit('error', msg)"
         />
-        <div class="flex px-4 pb-2 gap-2">
-          <Button class="w-1/2 text-gray-900" @click="stopInlineEditing">
+        <div
+          class="flex px-4 py-4 justify-between items-center"
+          style="max-height: calc(var(--h-row-mid) + 1px)"
+        >
+          <Button class="text-gray-900 w-20" @click="stopInlineEditing">
             {{ t`Cancel` }}
           </Button>
           <Button
             type="primary"
-            class="w-1/2 text-white"
+            class="text-white w-20"
             @click="saveInlineEditDoc(df)"
           >
             {{ t`Save` }}
@@ -49,15 +55,16 @@
         class="grid items-center"
         :class="{
           'border-b': !noBorder,
-          'h-12': !['AttachImage', 'Text'].includes(df.fieldtype),
         }"
         :key="`${df.fieldname}-regular`"
-        :style="style"
+        :style="{
+          ...style,
+
+          height: getFieldHeight(df),
+        }"
       >
-        <div class="py-2 pl-4 flex text-gray-600">
-          <div class="py-1">
-            {{ df.label }}
-          </div>
+        <div class="pl-4 flex text-gray-600">
+          {{ df.label }}
         </div>
 
         <div
@@ -73,7 +80,8 @@
             :df="df"
             :value="getRegularValue(df)"
             :class="{ 'p-2': df.fieldtype === 'Check' }"
-            :read-only="evaluateReadOnly(df)"
+            :read-only="readOnly"
+            :text-right="false"
             @change="async (value) => await onChange(df, value)"
             @focus="activateInlineEditing(df)"
             @new-doc="async (newdoc) => await onChange(df, newdoc.name)"
@@ -96,7 +104,7 @@ import FormControl from 'src/components/Controls/FormControl.vue';
 import { handleErrorWithDialog } from 'src/errorHandling';
 import { fyo } from 'src/initFyo';
 import { getErrorMessage } from 'src/utils';
-import { evaluateHidden, evaluateReadOnly } from 'src/utils/doc';
+import { evaluateHidden } from 'src/utils/doc';
 
 export default {
   name: 'TwoColumnForm',
@@ -115,6 +123,7 @@ export default {
     },
     noBorder: Boolean,
     focusFirstInput: Boolean,
+    readOnly: { type: [null, Boolean], default: null },
   },
   data() {
     return {
@@ -147,6 +156,17 @@ export default {
     }
   },
   methods: {
+    getFieldHeight(df) {
+      if (['AttachImage', 'Text'].includes(df.fieldtype)) {
+        return 'calc((var(--h-row-mid) + 1px) * 2)';
+      }
+
+      if (this.errors[df.fieldname]) {
+        return 'calc((var(--h-row-mid) + 1px) * 2)';
+      }
+
+      return 'calc(var(--h-row-mid) + 1px)';
+    },
     getRegularValue(df) {
       if (!df.inline) {
         return this.doc[df.fieldname];
@@ -164,17 +184,6 @@ export default {
       return (
         this.inlineEditField?.fieldname === df?.fieldname && this.inlineEditDoc
       );
-    },
-    evaluateReadOnly(df) {
-      if (df.fieldname === 'numberSeries' && !this.doc.notInserted) {
-        return true;
-      }
-
-      if (this.submitted) {
-        return true;
-      }
-
-      return evaluateReadOnly(df, this.doc);
     },
     async onChange(df, value) {
       if (df.inline) {
@@ -298,9 +307,6 @@ export default {
       return {
         'grid-template-columns': templateColumns,
       };
-    },
-    submitted() {
-      return this.doc.isSubmitted;
     },
   },
 };
